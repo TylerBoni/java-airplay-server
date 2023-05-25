@@ -32,6 +32,9 @@ public interface AirPlayConsumer {
     default void onMediaPlaylistResume() {
     }
 
+    default void onMediaScrub(Double positionSeconds) {
+    }
+
     default PlaybackInfo playbackInfo() {
         return new PlaybackInfo(0, 0);
     }

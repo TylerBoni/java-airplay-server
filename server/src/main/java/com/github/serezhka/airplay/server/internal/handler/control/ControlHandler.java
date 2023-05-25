@@ -42,6 +42,7 @@ public class ControlHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public final void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        log.info(msg.toString());
         if (msg instanceof FullHttpRequest request) {
             if (RtspVersions.RTSP_1_0.equals(request.protocolVersion())) {
                 if (HttpMethod.GET.equals(request.method()) && "/info".equals(request.uri())) {
@@ -75,7 +76,8 @@ public class ControlHandler extends ChannelInboundHandlerAdapter {
                     sendResponse(ctx, request, response);
                 }
             } else if (HttpVersion.HTTP_1_1.equals(request.protocolVersion())) {
-                var decoder = new QueryStringDecoder(request.uri());
+                String uri = request.uri();
+                var decoder = new QueryStringDecoder(uri);
                 if (HttpMethod.GET.equals(request.method()) && decoder.path().equals("/server-info")) {
                     handleGetServerInfo(ctx, request);
                 } else if (HttpMethod.POST.equals(request.method()) && decoder.path().equals("/fp-setup")) {
@@ -97,7 +99,7 @@ public class ControlHandler extends ChannelInboundHandlerAdapter {
                 } else if (HttpMethod.POST.equals(request.method()) && decoder.path().equals("/getProperty")) {
                     handleGetProperty(ctx, request);
                 } else if (HttpMethod.POST.equals(request.method()) && decoder.path().equals("/scrub")) {
-                    log.info(request.uri()); // TODO
+                    handleScrub(ctx, request);
                 } else if (HttpMethod.POST.equals(request.method()) && decoder.path().equals("/stop")) {
                     log.info(request.uri()); // TODO
                 } else if (HttpMethod.GET.equals(request.method()) && decoder.path().startsWith("/playlist")) {
@@ -280,7 +282,7 @@ public class ControlHandler extends ChannelInboundHandlerAdapter {
         log.info("Request content:\n{}", play.toXMLPropertyList());
 
         var clientProcName = play.get("clientProcName").toJavaObject(String.class);
-        if ("YouTube".equals(clientProcName)) {
+        // if ("YouTube".equals(clientProcName)) {
             var session = resolveSession(request);
             var playlistUri = play.get("Content-Location").toJavaObject(String.class);
             var playlistUriLocal = playlistUriToLocal(playlistUri, playlistBaseUrl(ctx), session.getId());
@@ -290,11 +292,11 @@ public class ControlHandler extends ChannelInboundHandlerAdapter {
 
             var response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
             sendResponse(ctx, request, response);
-        } else {
-            log.error("Client proc name [{}] is not supported!", clientProcName);
-            var response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_IMPLEMENTED);
-            sendResponse(ctx, request, response);
-        }
+        // } else {
+        //     log.error("Client proc name [{}] is not supported!", clientProcName);
+        //     var response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_IMPLEMENTED);
+        //     sendResponse(ctx, request, response);
+        // }
     }
 
     private void handleSetProperty(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
@@ -316,6 +318,16 @@ public class ControlHandler extends ChannelInboundHandlerAdapter {
         } else {
             airPlayConsumer.onMediaPlaylistResume();
         }
+
+        var response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+        sendResponse(ctx, request, response);
+    }
+    
+    private void handleScrub(ChannelHandlerContext ctx, FullHttpRequest request) {
+        var decoder = new QueryStringDecoder(request.uri());
+        var position = Double.parseDouble(decoder.parameters().get("position").get(0));
+
+            airPlayConsumer.onMediaScrub(position);
 
         var response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         sendResponse(ctx, request, response);
@@ -463,7 +475,7 @@ public class ControlHandler extends ChannelInboundHandlerAdapter {
         var cSeq = request.headers().get(RtspHeaderNames.CSEQ);
         if (cSeq != null) {
             response.headers().add(RtspHeaderNames.CSEQ, cSeq);
-            response.headers().add(RtspHeaderNames.SERVER, "AirTunes/220.68");
+            response.headers().add(RtspHeaderNames.SERVER, "AirPlay/220.68");
         }
 
         return response;

@@ -1,14 +1,24 @@
 package com.github.serezhka.airplay.player.gstreamer;
 
+import java.util.EnumSet;
+import java.util.concurrent.TimeUnit;
+
+import org.freedesktop.gstreamer.Buffer;
+import org.freedesktop.gstreamer.Caps;
+import org.freedesktop.gstreamer.Format;
+import org.freedesktop.gstreamer.Gst;
+import org.freedesktop.gstreamer.Pipeline;
+import org.freedesktop.gstreamer.Version;
+import org.freedesktop.gstreamer.elements.AppSrc;
+import org.freedesktop.gstreamer.event.SeekFlags;
+import org.freedesktop.gstreamer.event.SeekType;
+import org.freedesktop.gstreamer.glib.GLib;
+
 import com.github.serezhka.airplay.lib.AudioStreamInfo;
 import com.github.serezhka.airplay.lib.VideoStreamInfo;
 import com.github.serezhka.airplay.server.AirPlayConsumer;
-import lombok.extern.slf4j.Slf4j;
-import org.freedesktop.gstreamer.*;
-import org.freedesktop.gstreamer.elements.AppSrc;
-import org.freedesktop.gstreamer.glib.GLib;
 
-import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public abstract class GstPlayer implements AirPlayConsumer {
@@ -127,6 +137,12 @@ public abstract class GstPlayer implements AirPlayConsumer {
         if (hlsPipeline != null && !hlsPipeline.isPlaying()) {
             hlsPipeline.play();
         }
+    }
+
+    @Override
+    public void onMediaScrub(Double positionSeconds) {
+        long desiredPositionNs = (long) (positionSeconds * 1000000000L); // Convert seconds to nanoseconds
+        hlsPipeline.seek(1.0, Format.TIME, EnumSet.of( SeekFlags.FLUSH , SeekFlags.KEY_UNIT), SeekType.SET, desiredPositionNs, SeekType.NONE, 0);
     }
 
     @Override
